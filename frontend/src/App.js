@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
+import logo from "./assets/safeconnect.png";
 
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-import { FaSearch, FaFlag, FaShieldAlt, FaMoon, FaSun } from "react-icons/fa";
+import { FaSearch, FaFlag, FaMoon, FaSun } from "react-icons/fa";
 
-/* REPLACE WITH YOUR REAL RENDER BACKEND URL */
-const API_BASE = "https://safeconnect-api.onrender.com/api"; 
+const API_BASE = "https://safeconnect-api.onrender.com/api";
 
 const words = [
   "Phishing Attacks",
@@ -19,7 +19,6 @@ const words = [
 ];
 
 delete L.Icon.Default.prototype._getIconUrl;
-
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
   iconUrl: require("leaflet/dist/images/marker-icon.png"),
@@ -28,31 +27,33 @@ L.Icon.Default.mergeOptions({
 
 const countryCoordinates = {
   nigeria: [9.082, 8.6753],
-  "united kingdom": [55.3781, -3.4360],
   "united states": [37.0902, -95.7129],
+  "united kingdom": [55.3781, -3.436],
   india: [20.5937, 78.9629],
-  canada: [56.1304, -106.3468],
   ghana: [7.9465, -1.0232],
   kenya: [-0.0236, 37.9062],
+  canada: [56.1304, -106.3468],
   "south africa": [-30.5595, 22.9375],
   unknown: [20, 0],
 };
 
-function App() {
+export default function App() {
   const [search, setSearch] = useState("");
   const [darkMode, setDarkMode] = useState(false);
-  const [text, setText] = useState(words[0]);
+  const [animatedText, setAnimatedText] = useState(words[0]);
   const [scanResult, setScanResult] = useState(null);
   const [scanning, setScanning] = useState(false);
 
   const [reportTarget, setReportTarget] = useState("");
-  const [reportDesc, setReportDesc] = useState("");
   const [reportCountry, setReportCountry] = useState("");
+  const [reportDesc, setReportDesc] = useState("");
   const [reportStatus, setReportStatus] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
 
-  const [mapReports, setMapReports] = useState([]);
+  const [reports, setReports] = useState([]);
   const [recentReports, setRecentReports] = useState([]);
+  const [mapReports, setMapReports] = useState([]);
+
   const [stats, setStats] = useState({
     totalReports: 0,
     countriesAffected: 0,
@@ -62,57 +63,55 @@ function App() {
 
   useEffect(() => {
     let index = 0;
-
     const interval = setInterval(() => {
       index = (index + 1) % words.length;
-      setText(words[index]);
+      setAnimatedText(words[index]);
     }, 2500);
 
     return () => clearInterval(interval);
   }, []);
 
-  const buildDerivedData = (reports) => {
-    const mappedReports = reports.map((report) => {
-      const countryKey = (report.country || "Unknown").toLowerCase();
+  const buildDerivedData = (data) => {
+    const safeData = Array.isArray(data) ? data : [];
+    setReports(safeData);
+    setRecentReports([...safeData].reverse().slice(0, 6));
+
+    const mapped = safeData.map((item) => {
+      const countryKey = (item.country || "unknown").toLowerCase();
       const position =
-        countryCoordinates[countryKey] || countryCoordinates["unknown"];
+        countryCoordinates[countryKey] || countryCoordinates.unknown;
 
       return {
-        id: report.id,
-        target: report.target || "Unknown target",
-        type: report.type || "Reported scam",
-        country: report.country || "Unknown",
+        id: item.id,
+        target: item.target || "Unknown target",
+        type: item.type || "Reported scam",
+        country: item.country || "Unknown",
         position,
       };
     });
 
-    setMapReports(mappedReports);
-    setRecentReports(reports.slice().reverse().slice(0, 6));
-
-    const totalReports = reports.length;
+    setMapReports(mapped);
 
     const countries = new Set(
-      reports.map((item) => (item.country || "Unknown").toLowerCase())
+      safeData.map((item) => (item.country || "unknown").toLowerCase())
     );
 
     const targetCounts = {};
-    reports.forEach((item) => {
-      const target = (item.target || "").toLowerCase();
-      if (!target) return;
-      targetCounts[target] = (targetCounts[target] || 0) + 1;
+    safeData.forEach((item) => {
+      const key = (item.target || "").toLowerCase();
+      if (!key) return;
+      targetCounts[key] = (targetCounts[key] || 0) + 1;
     });
 
     const highRiskTargets = Object.values(targetCounts).filter(
       (count) => count >= 3
     ).length;
 
-    const recentReportsCount = reports.slice(-5).length;
-
     setStats({
-      totalReports,
+      totalReports: safeData.length,
       countriesAffected: countries.size,
       highRiskTargets,
-      recentReportsCount,
+      recentReportsCount: safeData.slice(-5).length,
     });
   };
 
@@ -162,7 +161,6 @@ function App() {
 
       setTimeout(() => {
         if (!response.ok) {
-          console.error("Analyze error:", data.error);
           alert(data.error || "Something went wrong while analyzing.");
           setScanning(false);
           return;
@@ -170,9 +168,9 @@ function App() {
 
         setScanResult(data);
         setScanning(false);
-      }, 2000);
+      }, 1500);
     } catch (error) {
-      console.error("Search error:", error);
+      console.error(error);
       setScanning(false);
       alert("Something went wrong while analyzing the target.");
     }
@@ -184,9 +182,7 @@ function App() {
     const cleanedCountry = reportCountry.trim();
 
     if (!cleanedTarget || !cleanedDesc) {
-      setReportStatus(
-        "Please enter both the suspicious target and description."
-      );
+      setReportStatus("Please enter both the suspicious target and description.");
       return;
     }
 
@@ -214,15 +210,13 @@ function App() {
 
       setReportStatus("Report submitted successfully.");
       setReportTarget("");
-      setReportDesc("");
       setReportCountry("");
+      setReportDesc("");
 
       await loadAllReports();
     } catch (error) {
-      console.error("Report error:", error);
-      setReportStatus(
-        "Failed to submit report. Check backend or internet connection."
-      );
+      console.error(error);
+      setReportStatus("Failed to submit report. Check backend or internet connection.");
     } finally {
       setReportLoading(false);
     }
@@ -231,13 +225,14 @@ function App() {
   return (
     <div className={darkMode ? "App dark" : "App"}>
       <nav className="navbar">
-        <h2>
-          <FaShieldAlt /> SafeConnect
-        </h2>
+        <div className="brand">
+          <img src={logo} alt="SafeConnect logo" className="brand-logo" />
+          <h2>SafeConnect</h2>
+        </div>
 
         <div className="nav-links">
           <a href="#home">Home</a>
-          <a href="#check">Verify</a>
+          <a href="#verify">Verify</a>
           <a href="#report">Report</a>
           <a href="#feed">Feed</a>
           <a href="#map">Map</a>
@@ -254,7 +249,7 @@ function App() {
         </p>
 
         <h1>
-          SafeConnect detects <span>{text}</span>
+          SafeConnect detects <span>{animatedText}</span>
         </h1>
 
         <p className="hero-sub">
@@ -271,17 +266,14 @@ function App() {
             <h3>{stats.totalReports}</h3>
             <p>Total Reports</p>
           </div>
-
           <div className="stat-card">
             <h3>{stats.countriesAffected}</h3>
             <p>Countries Affected</p>
           </div>
-
           <div className="stat-card">
             <h3>{stats.highRiskTargets}</h3>
             <p>High Risk Targets</p>
           </div>
-
           <div className="stat-card">
             <h3>{stats.recentReportsCount}</h3>
             <p>Recent Reports</p>
@@ -289,7 +281,7 @@ function App() {
         </div>
       </section>
 
-      <section id="check" className="section center">
+      <section id="verify" className="section center">
         <h2>
           <FaSearch /> Verify a Target
         </h2>
@@ -312,45 +304,27 @@ function App() {
         )}
 
         {scanResult && (
-          <div className={`risk-card ${scanResult.risk.toLowerCase()}`}>
+          <div className={`risk-card ${String(scanResult.risk || "low").toLowerCase()}`}>
             <h3>AI Trust Analysis</h3>
 
             <div className="risk-meter">
               <div
-                className={`risk-meter-fill ${scanResult.risk.toLowerCase()}`}
-                style={{ width: `${scanResult.confidence}%` }}
-              ></div>
+                className={`risk-meter-fill ${String(scanResult.risk || "low").toLowerCase()}`}
+                style={{ width: `${scanResult.confidence || 0}%` }}
+              />
             </div>
 
-            <p>
-              <strong>Entity Type:</strong> {scanResult.entityType || "general"}
-            </p>
-            <p>
-              <strong>Risk Level:</strong> {scanResult.risk}
-            </p>
-            <p>
-              <strong>Trust Score:</strong> {scanResult.trustScore}/100
-            </p>
-            <p>
-              <strong>Confidence:</strong> {scanResult.confidence}%
-            </p>
-            <p>
-              <strong>Reports:</strong> {scanResult.reports}
-            </p>
-            <p>
-              <strong>Type:</strong> {scanResult.type}
-            </p>
-            <p>
-              <strong>Country:</strong> {scanResult.country}
-            </p>
-            <p>
-              <strong>Reason:</strong> {scanResult.reason}
-            </p>
+            <p><strong>Entity Type:</strong> {scanResult.entityType || "general"}</p>
+            <p><strong>Risk Level:</strong> {scanResult.risk}</p>
+            <p><strong>Trust Score:</strong> {scanResult.trustScore}/100</p>
+            <p><strong>Confidence:</strong> {scanResult.confidence}%</p>
+            <p><strong>Reports:</strong> {scanResult.reports}</p>
+            <p><strong>Type:</strong> {scanResult.type}</p>
+            <p><strong>Country:</strong> {scanResult.country}</p>
+            <p><strong>Reason:</strong> {scanResult.reason}</p>
 
             {scanResult.checkedUrl && (
-              <p>
-                <strong>Checked URL:</strong> {scanResult.checkedUrl}
-              </p>
+              <p><strong>Checked URL:</strong> {scanResult.checkedUrl}</p>
             )}
           </div>
         )}
@@ -376,11 +350,11 @@ function App() {
         />
 
         <textarea
-          placeholder="Describe the suspicious activity, scam attempt, fake business, or fraudulent service..."
           rows="5"
+          placeholder="Describe the suspicious activity, scam attempt, fake business, or fraudulent service..."
           value={reportDesc}
           onChange={(e) => setReportDesc(e.target.value)}
-        ></textarea>
+        />
 
         <button onClick={handleReport}>Submit Report</button>
 
@@ -389,26 +363,24 @@ function App() {
       </section>
 
       <section id="feed" className="section">
-        <h2>⚡ Live Scam Reports (Auto-updating)</h2>
+        <h2>⚡ Live Scam Reports</h2>
 
         <div className="live-feed">
-          {recentReports.length === 0 && (
-            <p style={{ textAlign: "center", opacity: 0.6 }}>
-              No scam reports yet. Be the first to report one.
-            </p>
-          )}
+          {recentReports.length === 0 ? (
+            <p className="empty-state">No scam reports yet. Be the first to report one.</p>
+          ) : (
+            recentReports.map((report) => (
+              <div key={report.id} className="report-card">
+                <div className="report-card-top">
+                  <span className="report-badge">LIVE</span>
+                  <small className="report-country">{report.country}</small>
+                </div>
 
-          {recentReports.map((report) => (
-            <div key={report.id} className="report-card">
-              <div className="report-card-top">
-                <span className="report-badge">LIVE</span>
-                <small className="report-country">{report.country}</small>
+                <h3>{report.target}</h3>
+                <p>{report.type}</p>
               </div>
-
-              <h3>{report.target}</h3>
-              <p>{report.type}</p>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
 
@@ -418,7 +390,7 @@ function App() {
         <MapContainer
           center={[20, 0]}
           zoom={2}
-          style={{ height: "450px", width: "100%", borderRadius: "10px" }}
+          style={{ height: "420px", width: "100%" }}
         >
           <TileLayer
             attribution="© OpenStreetMap contributors"
@@ -444,6 +416,4 @@ function App() {
       </footer>
     </div>
   );
-}
-
-export default App; 
+} 
