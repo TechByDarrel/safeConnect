@@ -24,7 +24,7 @@ L.Icon.Default.mergeOptions({
   iconUrl: require("leaflet/dist/images/marker-icon.png"),
   shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
 });
-
+<img src={logo} alt="SafeConnect logo" className="brand-logo" />
 const countryCoordinates = {
   nigeria: [9.082, 8.6753],
   "united states": [37.0902, -95.7129],
@@ -52,7 +52,7 @@ export default function App() {
 
   const [reports, setReports] = useState([]);
   const [recentReports, setRecentReports] = useState([]);
-  const [mapReports, setMapReports] = useState([]);
+  const [mapReports, setMapReports] = useState([]); 
 
   const [stats, setStats] = useState({
     totalReports: 0,
